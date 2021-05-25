@@ -1,4 +1,5 @@
 library(immunarch)
+library(mmR)
 
 path = 'data/P18853_1001_result.clonotypes.TRB.txt'
 immdata = repLoad(path)

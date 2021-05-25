@@ -9,7 +9,7 @@ library(tibble)
 library(readr)
 HLA0201 <- HLA %>% 
   filter(grepl('^02:01', A1) | grepl('^02:01',A2))
-#write_csv(tmp, 'HLA_0201.csv')
+#write_csv(HLA0201, 'HLA_0201.csv')
 
 HLA_frequency <- function(HLA_dat, allele){
   # output a frequency table showing that in how many subjects a HLA type appears in 
@@ -27,3 +27,13 @@ HLA_frequency <- function(HLA_dat, allele){
 DRB <- HLA_frequency(HLA0201, c('DRB11', 'DRB12'))
 DPB <- HLA_frequency(HLA0201, c('DPB11', 'DPB12'))
 DQB <- HLA_frequency(HLA0201, c('DQB11', 'DQB12'))
+
+# select the samples with A02:01:01 B07:02:01 and DRB15:01:01
+HLASelect <- HLA %>% 
+  filter(grepl('^02:01', A1) | grepl('^02:01',A2)) %>%
+  filter(grepl('^15:01', DRB11) | grepl('^15:01', DRB12)) %>%
+  filter(grepl('^07:02', B1) | grepl('^07:02', B2))
+write_csv(HLASelect, 'HLA_select.csv')
+
+
+

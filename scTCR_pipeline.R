@@ -1,4 +1,6 @@
 ##
+library(dplyr)
+library(readr)
 
 path <- file.path('scTCR and targeted mRNA (BD)', 'data', 'P18953_2001_VDJ_perCell.csv') 
 raw <- read_csv(path, skip = 6) %>%  # skip the head info

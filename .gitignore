@@ -28,6 +28,8 @@ vignettes/*.pdf
 .Renviron
 # misc
 .DS_Store
+*.csv
+*.pdf
 # folder
 bulk_TCRseq/
 scTCR and targeted mRNA (BD)/
