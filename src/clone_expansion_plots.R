@@ -61,16 +61,21 @@ clone_expansion_donut <- function(sample_name, clone_exp){
   return(g)
 }
 
-clone_expansion_alluvium<- function(individual_name, clone_exp, top_number=10){
-  clone_exp <- clone_exp  %>%
-    tidyr::separate(Sample_Name, into = c('individual', 'time_point')) %>%
-    filter(individual == individual_name)
+get_top_expansion_id <- function(clone_exp, top_number=10){
   top_clone_id <- clone_exp %>% 
     group_by(clone_id) %>% 
     summarise(max_count = max(clone_count)) %>% 
     slice_max(order_by = max_count, n = top_number) %>% 
     select(clone_id) %>% 
     unlist(use.names = F)
+  return(top_clone_id)
+}
+
+clone_expansion_alluvium<- function(individual_name, clone_exp, top_number=10){
+  clone_exp <- clone_exp  %>%
+    tidyr::separate(Sample_Name, into = c('individual', 'time_point')) %>%
+    filter(individual == individual_name)
+  top_clone_id <- get_top_expansion_id(clone_exp, top_number)
   df <- clone_exp %>%
     group_by(time_point) %>%
     mutate(clone_ratio = clone_count/sum(clone_count)) %>%

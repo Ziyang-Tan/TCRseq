@@ -3,13 +3,14 @@ library(readr)
 library(ggplot2)
 library(ggpubr)
 library(Seurat)
+library(SeuratDisk)
 library(sctransform)
 
-proj_id <- c('P18953_2001', 'P23359_1001', 'P23359_1002', 'P23359_1003')
+proj_id <- c('P23359_1001', 'P23359_1002', 'P23359_1003')
 
 # load
 source('src/load_BD_scTCR.R')
-glob_path <- '/Users/tan/OneDrive - KI.SE/TCR_processed_data/single cell/*/*/*'
+glob_path <- '/Users/tan/OneDrive - KI.SE/TCR_processed_data/single cell'
 raw_tcr <- lapply(proj_id, BD_load_VDJ, dir_path = glob_path) %>% do.call(what = rbind)
 sample_tag <- lapply(proj_id, BD_load_sample_tag, dir_path = glob_path) %>% do.call(what = rbind)
 raw_gene <- lapply(proj_id, BD_load_gene_exp, dir_path = glob_path, norm_method = 'DBEC') %>% do.call(what = rbind)
@@ -55,18 +56,19 @@ ggsave(filename = 'CD4_CD8_expression_with_healthy.pdf')
 df <- obj[[]] %>%
   as_tibble() %>%
   mutate(cell_type = case_when(
-    seurat_clusters %in% c('1', '2', '3', '7', '8', '9', '14', '15') ~ 'CD4T',
-    seurat_clusters %in% c('4', '5', '13', '11', '6', '10') ~ 'CD8T',
-    is_gdT ~ 'gdT',
+    is_gdT ~ 'gdT', # should come first, or some gdT cells will be assigned into CD4T/CD8T, 
+                    # since they are in those seurat clusters
+    seurat_clusters %in% c('0', '2', '6', '8', '9', '10', '13', '14') ~ 'CD4T',
+    seurat_clusters %in% c('3', '4', '7', '11', '16') ~ 'CD8T',
     TRUE ~ 'others'
   )) %>%
   cbind(obj@reductions$umap[[]])
 ggplot(df, aes(x = UMAP_1, y = UMAP_2, color = cell_type)) +
   geom_point()
-ggsave(filename = 'CD4_CD8_types_with_healthy.pdf')
+ggsave(filename = 'CD4_CD8_types.pdf')
 
 df %>% 
   select(unique_index, cell_type, UMAP_1, UMAP_2, seurat_clusters) %>%
   write_csv(file = 'data/cell_types_with_healthy.csv')
 
-
+SaveH5Seurat(obj,filename = 'data/seurat_results.h5Seurat', overwrite = T)

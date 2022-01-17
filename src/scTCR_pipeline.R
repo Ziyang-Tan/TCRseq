@@ -3,24 +3,31 @@ library(readr)
 library(ggplot2)
 library(ggpubr)
 library(stringr)
-# 'P18953_2001', 
-proj_id <- c('P18953_2001', 'P23359_1001', 'P23359_1002', 'P23359_1003')
+
+proj_id <- c('P23359_1001', 'P23359_1002', 'P23359_1003')
+#sample_list = list(ISAC99=c('P23359_1001_ISAC99_1','P23359_1001_ISAC99_2','P23359_1001_ISAC99_3','P23359_1001_ISAC99_4','P23359_1001_ISAC99_5','P23359_1001_ISAC99_6'), 
+#                   ISAC35=c('P23359_1002_ISAC35_1','P23359_1002_ISAC35_2','P23359_1002_ISAC35_3','P23359_1002_ISAC35_4','P23359_1002_ISAC35_5','P23359_1002_ISAC35_6','P23359_1002_ISAC35_7',
+#                            'P23359_1003_ISAC35_1','P23359_1003_ISAC35_2','P23359_1003_ISAC35_3','P23359_1003_ISAC35_4','P23359_1003_ISAC35_5','P23359_1003_ISAC35_6','P23359_1003_ISAC35_7'),
+#                   healthy=c('P18953_2001_P18953_2001'))
 sample_list = list(ISAC99=c('ISAC99_1','ISAC99_2','ISAC99_3','ISAC99_4','ISAC99_5','ISAC99_6'), 
                    ISAC35=c('ISAC35_1','ISAC35_2','ISAC35_3','ISAC35_4','ISAC35_5','ISAC35_6','ISAC35_7'))
-
 # load data
 source('src/load_BD_scTCR.R')
-glob_path <- '/Users/tan/OneDrive - KI.SE/TCR_processed_data/single cell/*/*/*'
+glob_path <- '/Users/tan/OneDrive - KI.SE/TCR_processed_data/single cell'
 raw_tcr <- lapply(proj_id, BD_load_VDJ, dir_path = glob_path) %>% do.call(what = rbind)
 sample_tag <- lapply(proj_id, BD_load_sample_tag, dir_path = glob_path) %>% do.call(what = rbind)
 
 cell_type <- read_csv('data/cell_types.csv')
 
 raw_tcr_merge <- left_join(raw_tcr, sample_tag, by = 'unique_index') %>%
-  left_join(cell_type, by = 'unique_index')
+  left_join(cell_type, by = 'unique_index') %>%
+  mutate(Sample_Name = case_when(
+    is.na(Sample_Name) ~ proj_id,
+    TRUE ~ Sample_Name
+  ))
 
 # summarise 
-df <- raw_tcr_merge %>% filter(!Sample_Tag %in% c('Multiplet', 'Undetermined'))
+df <- raw_tcr_merge %>% filter(!Sample_Name %in% c('Multiplet', 'Undetermined'))
 table_summary <- df %>% group_by(proj_id) %>% summarise(demultiplexed = n()) %>% left_join(
   df %>% filter(at_least_one_chain) %>% group_by(proj_id) %>% summarise(at_least_one_CDR3 = n())
 ) %>% left_join(
@@ -30,27 +37,31 @@ table_summary <- df %>% group_by(proj_id) %>% summarise(demultiplexed = n()) %>%
 data <- raw_tcr_merge %>%
   filter(!is.na(TCR_Beta_Delta_CDR3_Nucleotide_Dominant)) %>%
   filter(!is.na(TCR_Alpha_Gamma_CDR3_Nucleotide_Dominant)) %>%
-  filter(!Sample_Tag %in% c('Multiplet', 'Undetermined')) %>%
+  filter(!Sample_Name %in% c('Multiplet', 'Undetermined')) %>%
   mutate(CDR3_concat = paste0(TCR_Alpha_Gamma_CDR3_Nucleotide_Dominant, '_', 
                               TCR_Beta_Delta_CDR3_Nucleotide_Dominant),
          CDR3aa_concat = paste0(TCR_Alpha_Gamma_CDR3_Translation_Dominant, '_', 
                                 TCR_Beta_Delta_CDR3_Translation_Dominant)) %>%
   mutate(clone_id = as.character(as.numeric(as.factor(CDR3_concat))))
+write_csv(data, file = 'data/scTCR_data_merge.csv')
 clone_id_map <- data %>% select(CDR3_concat, clone_id) %>% unique()
 clone_exp <- data %>%
   group_by(CDR3_concat, Sample_Name) %>%
   summarise(clone_count = n()) %>%
   ungroup() %>%
   inner_join(clone_id_map, by='CDR3_concat')
+  #inner_join(data %>% select(clone_id, CDR3aa_concat) %>% unique(), by='clone_id')
+write_csv(clone_exp, file = 'data/clone_expansion.csv')
 
 # donut chart 
-source("scTCR and targeted mRNA (BD)/clone_expansion_plots.R")
+source("src/clone_expansion_plots.R")
 patient<- 'ISAC35'
 for (sub_name in c('CD4T', 'CD8T', 'gdT')){
-  fig_dir <- file.path('figures', patient)
+  fig_dir <- file.path('figures', 'cartridge_wise', patient)
   dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
   clone_exp_sub <- data %>%
     filter(cell_type == sub_name) %>%
+    # mutate(Sample_Name = paste0(proj_id, '_', Sample_Name)) %>% # when proj_wise plots are needed
     group_by(CDR3_concat, Sample_Name) %>%
     summarise(clone_count = n()) %>%
     ungroup() %>%
@@ -62,9 +73,6 @@ for (sub_name in c('CD4T', 'CD8T', 'gdT')){
   g <- clone_expansion_alluvium(patient, clone_exp_sub) + labs(title = paste0(patient, '_gdT'))
   ggsave(plot = g, filename = file.path(fig_dir, paste0(patient, '_top_clone_changes_', sub_name, '.pdf')))
 }
-
-
-
 
 
 
